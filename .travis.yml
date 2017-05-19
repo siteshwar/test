@@ -7,15 +7,17 @@ services:
     - docker
 
 before_install:
-    - sudo apt-get update
-    - docker run -d -p 127.0.0.1:80:4567
+    - docker pull ${OS_TYPE}
 
 script:
-    - sed -i '/-c sh\/main.c/s|${mam_cc_FLAGS} |${mam_cc_FLAGS} ${CCFLAGS} |p' src/cmd/ksh93/Mamfile
-    - XTRAFLAGS="-Wno-unknown-pragmas -Wno-missing-braces -Wno-unused-result -Wno-return-type -Wno-int-to-pointer-cast -Wno-parentheses -Wno-unused -Wno-unused-but-set-variable -Wno-cpp -P"
-    - export CCFLAGS="-fno-strict-aliasing $XTRAFLAGS"
-    - export CC=gcc
-    - ./bin/package
-    - ./bin/package make mamake ||:
-    - ./bin/package make mamake ||:
-    - ./bin/package make -S
+    - docker run -v $TRAVIS_BUILD_DIR:/source ${OS_TYPE} bash -c "cd /source;
+        dnf repolist;
+        dnf install -y procps-ng libX11-devel fuse-devel gdbm-devel;
+        dnf groupinstall -y 'C Development Tools and Libraries';
+        XTRAFLAGS='-Wno-unknown-pragmas -Wno-missing-braces -Wno-unused-result -Wno-return-type -Wno-int-to-pointer-cast -Wno-parentheses -Wno-unused -Wno-unused-but-set-variable -Wno-cpp -P';
+        export CCFLAGS=\"-fno-strict-aliasing $XTRAFLAGS\";
+        export CC=gcc;
+        ./bin/package;
+        ./bin/package make mamake || :;
+        ./bin/package make -S 2>&1 | tee out.log ;
+        grep -q 'error:' out.log && exit 1 || exit 0;"
